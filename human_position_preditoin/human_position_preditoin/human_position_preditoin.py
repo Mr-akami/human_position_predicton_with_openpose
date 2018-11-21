@@ -16,18 +16,28 @@ import subprocess
 
 
 
-# jsonファイルが置かれるディレクトリ#samba上の画像が置かれるディレクトリ
-saved_jason_dir = (r'C:\Users\km65725\Documents\Visual Studio 2015\Projects\jsondir')
+#samba上の監視対象が置かれるディレクトリ、USBカメラのときはJson,RPiのときはImageが入る
+saved_samba_dir = (r'C:\Users\km65725\Documents\Visual Studio 2015\Projects\jsondir')
+
+#Jsonファイルが置かれる場所
+#RPiのとき
+#saved_json_dir = (r'C:\Users\km65725\Documents\Visual Studio 2015\Projects\jsondir')
+#USBカメラのとき
+saved_json_dir = saved_samba_dir
 
 # 一度読み込んだ画像の移動先
-# img_to_dir = (r'')
+# used_img_dir = (r'')
 
 # openpose.exeのパス
 # video_to_json_openposepath = (r'./~~~~/OpenPoseDemo.exe')
 
+# OpenPoseが画像を保存するパス
+saved_image_dir = (r'aa')
+
 # USBカメラ用Openposeパス
 # 
 usbcam_openpose_path = (r'/openpose.exe')
+usbcam_openpose_command =  ' '.join[usbcam_openpose_path,"--write_keypoint_json",saved_jason_dir,"--write_images",saved_image_dir]
 
 # モデルと重みの場所と名前
 f_model = './model'
@@ -41,6 +51,7 @@ img = cv2.imread('original.jpg')
 # ファイルの更新を監視し、変更があったときに動作するクラス
 class ChangeHandler(FileSystemEventHandler):
     def on_created(self, event):
+        #USBカメラの時はJsonファイル、RPiのときはimageファイルを取得
         filepath = event.src_path
         filename = os.path.basename(filepath)
         #print('%s' % filename)
@@ -60,13 +71,18 @@ class ChangeHandler(FileSystemEventHandler):
             # current_gravity,可視化
             
             ##### WEBカメラのとき
-            img = cv2.imread('original.jpg') # Webカメラのときはこっち
+            list_of_files = glob(saved_image_dir)
+            latest_file = max(list_of_files,key=os.path.getctime)
+            latest_file_path = os.path.join(saved_image_dir,latest_file)
+            img = cv2.imread(latest_file_path) 
+            ##### WEBカメラのときここまで
             
             #### RPiのとき
-            # img = cv2.imread(filename) # RPiのときJsonファイルを作った元画像を表示
+            #img = cv2.imread(filename) 
+            ### RPiのときここまで
             
-            cv2.circle(img,(int(current_gravity[0]), int(current_gravity[1])),20,(255,255,0),thickness = -1)
-            cv2.circle(img,(int(future_gravity[0]), int(future_gravity[1])),20,(255,0,255),thickness = -1)
+            cv2.circle(img,(int(current_gravity[0]), int(current_gravity[1])),20,(255,0,255),thickness = -1)
+            cv2.circle(img,(int(future_gravity[0]), int(future_gravity[1])),20,(255,0,0),thickness = -1)
             #cv2.destroyAllWindows()
 
             cv2.imshow('nacho', img)
@@ -76,7 +92,7 @@ class ChangeHandler(FileSystemEventHandler):
 
         ########RPiのときのみ有効##########
         # 一度読み込んだ画像を移動する
-        #shutil.move(filename,img_to_dir)
+        #shutil.move(filename,used_img_dir)
 
 
     def on_modified(self, event):
@@ -90,7 +106,7 @@ class ChangeHandler(FileSystemEventHandler):
         print('%sを削除しました' % filename)
 
 
-# DeepLearningにより、0.5s後の状態を推定
+# DeepLearningにより、Trainingで指定したフレーム数後の状態を推定
 class EstimateAction:
 
     @staticmethod
@@ -171,7 +187,7 @@ if __name__ == '__main__':
         
         observer = Observer()
         # 今はjsonファイルを格納するsaved_jason_dirが監視対象だが、本番ではimg_dirになる
-        observer.schedule(event_handler, saved_jason_dir, recursive=True)
+        observer.schedule(event_handler, saved_jason_dir, recursive=True)#監視フォルダに画像をおく
         observer.start()
         try:
             while True:
@@ -186,7 +202,7 @@ if __name__ == '__main__':
     ## USBカメラで処理する場合
     ########################################
     ## USBカメラ起動&Jsonファイル保存
-    #subprocess.run((usbcam_openpose_path,--write_keypoint_json,saved_jason_dir))
+    #subprocess.Popen(usbcam_openpose_command,shell=True)# 監視フォルダにJsonファイルを置く
     ## Observer起動
     #    while 1:
     #    event_handler = ChangeHandler()
@@ -202,3 +218,5 @@ if __name__ == '__main__':
     #        observer.stop()
     #   observer.join()
     ##USBカメラの場合ここまで##################
+
+
